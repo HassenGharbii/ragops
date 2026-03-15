@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 
-const API_URL = 'http://localhost:9905/events?limit=200';
+const API_URL = 'http://localhost:9905/events?limit=5000';
 
 export const useEventData = () => {
   const [rawData, setRawData] = useState([]);
@@ -18,8 +18,8 @@ export const useEventData = () => {
         const data = await res.json();
         
         if (isMounted) {
-          // data should be an array of events
-          setRawData(Array.isArray(data) ? data : (data.events || []));
+          // the api returns { "count": X, "results": [...] }
+          setRawData(Array.isArray(data) ? data : (data.results || []));
           setError(null);
           setLoading(false);
         }
