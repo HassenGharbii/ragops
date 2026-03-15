@@ -720,8 +720,128 @@ const OfficialDashboard = ({ data }) => {
 };
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   ⑦ GENERIC FALLBACK (for all unspecialized categories)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const GenericDashboard = ({ data }) => {
+  const eventTypes = {};
+  const violations = {};
+  const suspects = [];
+  const allWarrants = [];
+
+  data.forEach(e => {
+    const t = e.parsedDetails?.event_type_details;
+    if (t) eventTypes[t] = (eventTypes[t] || 0) + 1;
+    const v = e.parsedDetails?.violation_type;
+    if (v) violations[v] = (violations[v] || 0) + 1;
+    (e.parsedDetails?.persons || []).forEach(p => suspects.push({ ...p }));
+    (e.parsedDetails?.legal_actions || []).forEach(la => allWarrants.push({ ...la, eventSummary: e.event_summary?.slice(0, 60) + '...' }));
+  });
+
+  const typeEntries = Object.entries(eventTypes).sort((a, b) => b[1] - a[1]);
+  const violEntries = Object.entries(violations).sort((a, b) => b[1] - a[1]);
+  const warrantsWithNum = allWarrants.filter(w => w.warrant_number).slice(0, 8);
+
+  const donutOpts = {
+    chart: { ...BASE, type: 'donut' },
+    colors: PALETTE,
+    labels: typeEntries.map(([k]) => k),
+    stroke: { show: false },
+    legend: { position: 'bottom', fontFamily: CF, fontSize: '12px' },
+    dataLabels: { enabled: false },
+    plotOptions: { pie: { donut: { size: '72%', labels: {
+      show: true,
+      total: { show: true, label: 'إجمالي', fontFamily: CF, color: '#94a3b8', formatter: () => data.length }
+    }}}},
+    tooltip: { theme: 'light', style: { fontFamily: CF } }
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+      {/* KPIs */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
+        <StatsCard title="إجمالي الأحداث"         value={data.length}         icon={Package}     color="indigo" subtext="السجلات في هذه الفئة" />
+        <StatsCard title="أنواع الأحداث"           value={typeEntries.length}   icon={Activity}    color="sky"    subtext="أنواع مختلفة" />
+        <StatsCard title="المشتبه بهم / المعنيون" value={suspects.length}      icon={UsersIcon}   color="violet" subtext="أفراد مذكورون" />
+        <StatsCard title="إجراءات قانونية"         value={allWarrants.length}   icon={ShieldCheck} color="rose"   subtext="المحاضر والمناشير" />
+      </div>
+
+      {/* Event type donut + violations bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+        <div className="card">
+          <SectionTitle sub="توزيع الأحداث حسب نوعها">أنواع الأحداث</SectionTitle>
+          {typeEntries.length > 0
+            ? <Chart options={donutOpts} series={typeEntries.map(([, v]) => v)} type="donut" height={300} />
+            : <Empty msg="لم يتم استخراج أنواع الأحداث" />}
+        </div>
+        <div className="card">
+          <SectionTitle sub="أنواع المخالفات المسجلة">المخالفات والجرائم</SectionTitle>
+          {violEntries.length > 0
+            ? <RankedList items={violEntries.slice(0, 8)} color="#f59e0b" />
+            : <Empty msg="لم يتم تسجيل مخالفات" />}
+        </div>
+      </div>
+
+      {/* Suspects */}
+      {suspects.length > 0 && (
+        <div className="card">
+          <SectionTitle sub="الأفراد المذكورون في الملفات">الأشخاص المعنيون</SectionTitle>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+            {suspects.slice(0, 6).map((p, i) => (
+              <PersonCard key={i} person={p} color={PALETTE[i % 3]} bg={['#e0e7ff', '#ffe4e6', '#d1fae5'][i % 3]} />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Warrant table */}
+      {warrantsWithNum.length > 0 && (
+        <div className="card">
+          <SectionTitle sub="المناشير والمحاضر المسجلة">الإجراءات القضائية</SectionTitle>
+          <div style={{ overflowY: 'auto', maxHeight: 260 }}>
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>رقم المنشور</th>
+                  <th>الجهة</th>
+                  <th>التهمة</th>
+                  <th>نوع الإجراء</th>
+                </tr>
+              </thead>
+              <tbody>
+                {warrantsWithNum.map((w, i) => (
+                  <tr key={i}>
+                    <td><span style={{ fontWeight: 700, color: '#6366f1' }}>{w.warrant_number}</span></td>
+                    <td>{w.issuer || '—'}</td>
+                    <td style={{ maxWidth: 180 }}>
+                      <span style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{w.charges || '—'}</span>
+                    </td>
+                    <td>{w.action_type || '—'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      <LocationPanel data={data} />
+      <EventFeed data={data} />
+    </div>
+  );
+};
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    CONTROLLER
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+const SPECIALIZED = new Set([
+  'جرائم المخدرات',
+  'أحداث مرورية',
+  'أمن الحدود',
+  'جرائم السرقات',
+  'جرائم اقتصادية ومالية',
+  'الأنشطة الرسمية والتظاهرات',
+]);
+
 const CategoryDashboard = ({ category, data, onBack }) => {
   if (!data || data.length === 0) {
     return (
@@ -745,6 +865,7 @@ const CategoryDashboard = ({ category, data, onBack }) => {
       {category === 'جرائم السرقات'              && <TheftDashboard    data={data} />}
       {category === 'جرائم اقتصادية ومالية'      && <EconomicDashboard data={data} />}
       {category === 'الأنشطة الرسمية والتظاهرات' && <OfficialDashboard data={data} />}
+      {!SPECIALIZED.has(category)                && <GenericDashboard  data={data} />}
     </div>
   );
 };

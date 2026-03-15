@@ -47,7 +47,15 @@ export const useEventData = () => {
     return rawData.map(event => ({
       ...event,
       // Parse details if it comes as a string from DB
-      parsedDetails: typeof event.details === 'string' ? JSON.parse(event.details) : (event.details || {})
+      parsedDetails: (() => {
+        try {
+          return typeof event.details === 'string'
+            ? JSON.parse(event.details)
+            : (event.details || {});
+        } catch {
+          return {};
+        }
+      })()
     }));
   }, [rawData]);
 
@@ -83,6 +91,53 @@ export const useEventData = () => {
       return acc;
     }, {});
 
+    // ── Daily trend (group by date) ──
+    const dailyMap = {};
+    events.forEach(e => {
+      const rawDate = e.parsedDetails?.date || e.created_at;
+      if (!rawDate) return;
+      try {
+        const d = new Date(String(rawDate).replace(/\//g, '-').split('و')[0].trim());
+        if (isNaN(d.getTime())) return;
+        const dateKey = d.toISOString().slice(0, 10);
+        dailyMap[dateKey] = (dailyMap[dateKey] || 0) + 1;
+      } catch { return; }
+    });
+    const dailyTrend = Object.entries(dailyMap)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, count]) => ({ date, count }));
+
+    const peakDay = dailyTrend.reduce(
+      (best, d) => (d.count > best.count ? d : best),
+      { date: null, count: 0 }
+    );
+
+    const avgPerDay = dailyTrend.length > 0
+      ? (total / dailyTrend.length).toFixed(1)
+      : 0;
+
+    // ── Casualties ──
+    const totalCasualties = events.reduce(
+      (acc, e) => ({
+        dead: acc.dead + (e.parsedDetails?.casualties_dead || 0),
+        injured: acc.injured + (e.parsedDetails?.casualties_injured || 0),
+      }),
+      { dead: 0, injured: 0 }
+    );
+
+    // ── Region counts (by target field) ──
+    const regionCounts = events.reduce((acc, e) => {
+      const region = (e.target || '').trim();
+      if (region) acc[region] = (acc[region] || 0) + 1;
+      return acc;
+    }, {});
+
+    // ── Classified percentage ──
+    const unclassified = categoryCounts['غير مصنف'] || 0;
+    const classifiedPct = total > 0
+      ? Math.round(((total - unclassified) / total) * 100)
+      : 0;
+
     return {
       loading,
       error,
@@ -91,7 +146,13 @@ export const useEventData = () => {
       warrantHitRate,
       totalValue: totalValue.toLocaleString() + ' DT',
       categoryCounts,
-      events
+      events,
+      dailyTrend,
+      peakDay,
+      avgPerDay,
+      totalCasualties,
+      regionCounts,
+      classifiedPct,
     };
   }, [events, loading, error]);
 

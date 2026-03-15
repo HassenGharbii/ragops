@@ -1,17 +1,23 @@
 import React from 'react';
 import {
-  LayoutDashboard, Droplet, Truck, Shield, Lock,
-  ShoppingBag, Users, Settings, AlertTriangle, ChevronRight
+  LayoutDashboard, Droplet, Truck, Shield, Lock, ShoppingBag,
+  Users, Settings, AlertTriangle, FileQuestion, Home, Siren,
+  UserCog, ClipboardList
 } from 'lucide-react';
 
 const MENU = [
-  { id: 'overview', label: 'الرؤية الشاملة', icon: LayoutDashboard },
-  { id: 'drugs', label: 'جرائم المخدرات', icon: Droplet },
-  { id: 'traffic', label: 'أحداث مرورية', icon: Truck },
-  { id: 'border', label: 'أمن الحدود', icon: Shield },
-  { id: 'theft', label: 'جرائم السرقات', icon: Lock },
-  { id: 'economic', label: 'الجرائم الاقتصادية', icon: ShoppingBag },
-  { id: 'official', label: 'الأنشطة الرسمية', icon: Users },
+  { id: 'overview',    label: 'الرؤية الشاملة',              icon: LayoutDashboard },
+  { id: 'drugs',       label: 'جرائم المخدرات',              icon: Droplet },
+  { id: 'traffic',     label: 'أحداث مرورية',                icon: Truck },
+  { id: 'border',      label: 'أمن الحدود',                  icon: Shield },
+  { id: 'theft',       label: 'جرائم السرقات',               icon: Lock },
+  { id: 'economic',    label: 'الجرائم الاقتصادية',          icon: ShoppingBag },
+  { id: 'official',    label: 'الأنشطة الرسمية',             icon: Users },
+  { id: 'property',    label: 'الاعتداء على الأملاك',        icon: Home },
+  { id: 'regulatory',  label: 'أحداث التراتيب',              icon: ClipboardList },
+  { id: 'terrorism',   label: 'أحداث إرهابية',               icon: Siren },
+  { id: 'security',    label: 'أعوان الأمن',                 icon: UserCog },
+  { id: 'unclassified',label: 'غير مصنف',                    icon: FileQuestion },
 ];
 
 const Sidebar = ({ activeTab, onTabChange, categoryCounts = {} }) => {
