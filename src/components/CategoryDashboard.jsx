@@ -424,7 +424,7 @@ const BorderDashboard = ({ data }) => {
     });
   });
 
-  const locEntries = Object.entries(locationCounts).sort((a,b)=>b[1]-a[1]);
+  const locEntries = Object.entries(locationCounts).sort((a,b)=>b[1]-a[1]).slice(0, 10);
   const goodsEntries = Object.entries(smuggledGoods).sort((a,b)=>b[1]-a[1]);
 
   const barOpts = {
@@ -448,16 +448,16 @@ const BorderDashboard = ({ data }) => {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4,1fr)', gap: 16 }}>
         <StatsCard title="إجمالي الحوادث"         value={data.length}             icon={Shield}   color="indigo" />
-        <StatsCard title="نقاط العبور"             value={locEntries.length}       icon={MapPin}   color="amber"  />
+        <StatsCard title="نقاط العبور"             value={Object.keys(locationCounts).length} icon={MapPin}   color="amber"  />
         <StatsCard title="أنواع البضائع المهربة"   value={goodsEntries.length}     icon={Package}  color="violet" />
         <StatsCard title="أشخاص مشتبه بهم"         value={wantedPersons.length}    icon={Search}   color="rose"   />
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '3fr 2fr', gap: 16 }}>
         <div className="card">
-          <SectionTitle sub="عدد الحوادث لكل نقطة عبور">أداء نقاط العبور</SectionTitle>
+          <SectionTitle sub="عدد الحوادث لكل نقطة عبور (أفضل 10)">أداء نقاط العبور</SectionTitle>
           {locEntries.length > 0
-            ? <Chart options={barOpts} series={[{ name: 'عدد الحوادث', data: locEntries.map(([,v]) => v) }]} type="bar" height={280} />
+            ? <Chart options={barOpts} series={[{ name: 'عدد الحوادث', data: locEntries.map(([,v]) => v) }]} type="bar" height={350} />
             : <Empty />}
         </div>
 
@@ -613,10 +613,16 @@ const EconomicDashboard = ({ data }) => {
             : <Empty />}
         </div>
         <div className="card">
-          <SectionTitle sub="ترتيب المخالفات حسب التكرار">أبرز المخالفات</SectionTitle>
-          {vioEntries.length > 0
-            ? <RankedList items={vioEntries.slice(0, 7)} color="#f59e0b" />
-            : <Empty />}
+          <SectionTitle sub="المواد والسلع التي تم ضبطها">قائمة المحجوزات</SectionTitle>
+          {data.flatMap(e => e.parsedDetails?.seized_objects || []).length > 0
+            ? <RankedList 
+                items={Object.entries(data.flatMap(e => e.parsedDetails?.seized_objects || []).reduce((acc, obj) => {
+                  acc[obj] = (acc[obj] || 0) + 1;
+                  return acc;
+                }, {})).sort((a, b) => b[1] - a[1]).slice(0, 8)} 
+                color="#f59e0b" 
+              />
+            : <Empty msg="لم يتم تسجيل سلع مضبوطة" />}
         </div>
       </div>
 
@@ -638,7 +644,7 @@ const OfficialDashboard = ({ data }) => {
     if (txt.includes('سلمي')) impactTags['سلمي']++;
     if (txt.includes('عنيف') || txt.includes('مواجهة')) impactTags['عنيف']++;
     if (txt.includes('طريق') || txt.includes('قطع')) impactTags['إغلاق طريق']++;
-    const org = e.parsedDetails?.event_type_details;
+    const org = e.parsedDetails?.organizer || e.parsedDetails?.event_type_details;
     if (org) orgMap[org] = (orgMap[org] || 0) + 1;
   });
 
@@ -687,6 +693,27 @@ const OfficialDashboard = ({ data }) => {
       </div>
 
       <LocationPanel data={data} />
+      {/* Event Details Highlights */}
+      <div className="card">
+        <SectionTitle sub="تفاصيل أهداف التحركات وأعداد المشاركين">ملخص التحركات الميدانية</SectionTitle>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          {data.slice(0, 6).map((e, i) => {
+            const d = e.parsedDetails;
+            if (!d?.objective && !d?.participant_count) return null;
+            return (
+              <div key={i} style={{ padding: '12px 14px', background: 'var(--surface-2)', borderRadius: 12, border: '1px solid var(--border)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                  <span style={{ fontSize: 13, fontWeight: 700, color: '#6366f1' }}>{d.organizer || 'جهة غير محددة'}</span>
+                  {d.participant_count && <span style={{ fontSize: 11, fontWeight: 700, background: '#e0e7ff', color: '#4338ca', padding: '2px 8px', borderRadius: 6 }}>{d.participant_count} مشارك</span>}
+                </div>
+                {d.objective && <p style={{ fontSize: 13, color: 'var(--text)', margin: '4px 0 0', lineHeight: 1.4 }}><strong>الهدف:</strong> {d.objective}</p>}
+                <p style={{ fontSize: 11, color: 'var(--text-3)', marginTop: 4 }}>{e.event_summary.slice(0, 100)}...</p>
+              </div>
+            );
+          }).filter(Boolean)}
+          {data.filter(e => (e.parsedDetails?.objective || e.parsedDetails?.participant_count)).length === 0 && <Empty msg="لم يتم استخراج أهداف أو أعداد مشاركين بعد" />}
+        </div>
+      </div>
       <EventFeed data={data} />
     </div>
   );
